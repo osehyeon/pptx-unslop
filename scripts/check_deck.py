@@ -13,7 +13,8 @@ Reports
             on a machine without the font
   picture   one image (a logo) placed at different sizes or positions on the master, layouts and slides;
             it jumps when the audience moves between a cover and a content slide
-  sizes     explicit point sizes in use, to spot near-duplicate values for one role
+  sizes     point sizes set on the slides themselves, to spot near-duplicate values for one role; a second line
+            lists the sizes the layouts and masters carry (text with no size of its own inherits one of those)
 Exit 1 when lang, bold, fonts or picture has a finding in the input deck (also when --fix-lang wrote a fixed copy).
 """
 import os, re, sys, zipfile
@@ -72,7 +73,7 @@ def main():
         bad += 1
 
     theme = theme_fonts(z)
-    sizes, out = {}, {}
+    sizes, inherited, out = set(), set(), {}
     for n in sorted(z.namelist()):
         if not PART.match(n):
             continue
@@ -94,7 +95,7 @@ def main():
                     rp.set("lang", lang); rp.set("altLang", alt); changed = True
         for e in list(t.iter(A + "rPr")) + list(t.iter(A + "defRPr")):
             if e.get("sz"):
-                sizes.setdefault(int(e.get("sz")) / 100, set()).add(n.split("/")[-1])
+                (sizes if n.startswith("ppt/slides/") else inherited).add(int(e.get("sz")) / 100)
             if e.get("b") == "1":
                 tf = typeface(e, theme)
                 if tf and "light" in tf.lower():
@@ -125,7 +126,8 @@ def main():
             print(f"picture {img} at {len(boxes)} places (x, y, w, h in):", "; ".join(f"{b} {', '.join(v)}" for b, v in boxes.items()))
             bad += 1
 
-    print("sizes ", ", ".join(f"{s:g}" for s in sorted(sizes)), "pt")
+    print("sizes ", ", ".join(f"{s:g}" for s in sorted(sizes)) or "none set", "pt on the slides")
+    print("       ", ", ".join(f"{s:g}" for s in sorted(inherited)) or "none", "pt in layouts, masters and notes")
     if fix:
         with zipfile.ZipFile(fix, "w", zipfile.ZIP_DEFLATED) as w:
             for item in z.infolist():
